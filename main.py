@@ -172,19 +172,6 @@ def gen_train(algorithm, args, offset, sheet):
 #lut_heights, teth_heights, fix_data, teth_data, temph, fix_train, cent_train = import_data()
 
 
-model = keras.Sequential()
-model.add(keras.layers.Flatten(input_shape=(128, 128, 1)))
-model.add(keras.layers.BatchNormalization())
-    
-    #model.add(keras.layers.Dense(512, activation='relu'))
-model.add(keras.layers.Dense(256, activation='relu'))
-model.add(keras.layers.Dropout(0.2))
-model.add(keras.layers.Dense(128,activation='relu'))
-    #model.add(keras.layers.Dense(64,activation='relu'))
-model.add(keras.layers.Dense(2))
-
-model.summary()
-
 # arguments for 200nm shift video
 com_args = ["videos/200nm shift every 5s cropped.avi"]
 # 165, 225, 0.8 no interp, 1
