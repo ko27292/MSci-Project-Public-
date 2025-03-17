@@ -62,6 +62,15 @@ def import_data():
     return lut_heights, teth_heights, fix_data, teth_data, temph, fix_train, cent_train
 
 def test_algorithm(algorithm, args, diff, video_name, show=True, ret=False):
+    """Function used for testing x-y algorithms.
+    Inputs:
+        algorithm - the algorithm to be tested
+        args - inputs for algorithm
+        diff - the value expected for the shifts, in pixels
+        video_name - name of the video used (for graph title)
+        show - argument to display the graphs of position
+        ret - whether to return arrays of the position
+    """
     centres = algorithm(*args)
     start_index = 0
     prev_position = 0
@@ -110,6 +119,15 @@ def test_algorithm(algorithm, args, diff, video_name, show=True, ret=False):
         return centres[:,0], centres[:,1]
 
 def test_z(lut_args, args, diff, video_name, show=True, ret=False):
+    """Function used for testing z algorithms.
+    Inputs:
+        lut_args - arguments to be used for the LUT generation
+        args - inputs the z tracking algorithm
+        diff - the value expected for the shifts, in μm
+        video_name - name of the video used (for graph title)
+        show - argument to display the graphs of position
+        ret - whether to return arrays of the position
+    """
     fit, *lut_res = generate_LUT(*lut_args)
     args[3].insert(0, fit) # inserting fit into the mode args list
     z_pos = z_position(*args)
@@ -153,6 +171,13 @@ def test_z(lut_args, args, diff, video_name, show=True, ret=False):
         return np.array(z_pos)
 
 def gen_train(algorithm, args, offset, sheet):
+    """Function to generate and upload position data for training of NNs
+    Inputs:
+        algorithm - the algorithm to use to track position
+        args - inputs for algorithm
+        offset - which row to start adding data from
+        sheet - the sheet to add data into
+        """
     centres = algorithm(*args)
     
     
@@ -219,79 +244,28 @@ lut_rad = [com_single, teth_lut, "rad", [8, 40, 2], teth_heights]
 #profs, z_lut = generate_LUT(*lut_rad)
 #z = z_position("videos/Tethered LUT.avi", com_mirror, teth_lut, "rad", [profs, z_lut])
 
-    
-
-def brownian(x, y, z):
-    steps = [4400, 5400, 6400, 7400, 8400, 9400]
-    forces = [2.81, 5.49, 10.74, 15.01, 20.98, 29.33]
-
-    x_exts = []
-    vars_x = []
-    y_exts = []
-    z_exts = []
-    dz = []
-    Lc = 1020*10**(-9)
-    Lp = 50*10**(-9)
-
-    for i in range(len(steps)):
-        step_x = x[steps[i]: steps[i] + 400]
-        step_y = y[steps[i]: steps[i] + 400]
-        step_z = z[steps[i]: steps[i] + 400]
-        if i == 0:
-            prev_z = np.average(z[steps[i]: steps[i] + 400])
-        else:
-            tz = np.average(z[steps[i]: steps[i] + 400]) - prev_z
-            prev_z = np.average(z[steps[i]: steps[i] + 400])
-            dz.append(tz)
-    
-        std_x = np.std(step_x * 142)
-        std_y = np.std(step_y * 142)
-        std_z = np.std(step_z * 142 * 0.88) # refractive index factor 0.88
-    
-        var_x = (std_x*10**-9)**2
-        var_y = (std_y*10**-9)**2
-        var_z = (std_z*10**-9)**2
-
-        vars_x.append(var_x)
-        x_ext = (var_x * forces[i] * 10**(-12))/(1.38*10**(-23) * 294)
-        y_ext = (var_y * forces[i] * 10**(-12))/(1.38*10**(-23) * 294)
-        z_ext = (Lc * (1 - (((Lp * Lc)/var_z) - 2) ** (-1/3)))
-
-        x_exts.append(x_ext * 10**6)
-        y_exts.append(y_ext * 10**6 - 1.4)
-        z_exts.append(z_ext * 10**6)
-
-
-    print(f"x = {x_exts}")
-    print(f"y = {y_exts}")
-    print(f"z = {z_exts}")
-    print(f"δz = {dz}")
-    print(f"δy = {np.diff(y_exts)}")
-    print(f"δx = {np.diff(x_exts)}")
-    print(f"δz = {np.diff(z_exts)}")
-
-    plt.figure()
-    plt.plot(x[3400:3800])
-    plt.title("X position for frames 3400-3800")
-    plt.xlabel("frame")
-    plt.ylabel("X position (px)")
-    plt.figure()
-    plt.plot(vars_x, "-*")
-    plt.figure()
-    plt.plot(forces)
-    plt.figure()
-    plt.plot(x, linewidth=0.5)
-    plt.title("X position as a function of time")
-    plt.xlabel("Frames")
-    plt.ylabel("X position (px)")
-    plt.figure()
-    plt.plot(z)
-    plt.show()
 
 def f_wlc(Lext, F, Lp, kb, T, Lc):
+    """Returns the force as predicted by the worm-like chain model
+    Inputs:
+        Lext - Tether extension length
+        F - the force applied 
+        Lp - persistence length
+        kb - Boltzmann constant
+        T - Temperature (K)
+        Lc - contour length"""
     return 0.25 * (1 - (Lext/Lc))**(-2) - 0.25 + Lext/Lc - (F*Lp)/(kb * T)
 
 def predict_fluct(x, y, z):
+    """A function to predict the fluctuations at a given force and compare them to the obtained 
+    fluctuations at the same force
+    Inputs:
+        x - array of x positions
+        y - array of y positions
+        z - array of z positions
+    Outputs:
+        pred_var - array of x,y,z predicted fluctuations
+        variances - array of x,y,z obtained fluctuations"""
     steps = [2400, 3400, 4400, 5400, 6400, 7400, 8400, 9400]
     forces = [0.74, 1.44, 2.81, 5.49, 10.74, 15.01, 20.98, 29.33]
     variances = np.empty((8, 3))
